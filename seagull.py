@@ -4,7 +4,7 @@
 Usage:
     seagull list
     seagull describe <project>
-    seagull build <project> [--for-print --to-pdf]
+    seagull build <project> [--for-print --to-pdf --watch]
     seagull clean <project>
 
 Options:
@@ -12,11 +12,12 @@ Options:
     --version       Show version.
     --for-print     Configure the LaTeX template for printed output.
     --to-pdf        Carry the build process all the way to the PDF stage.
+    --watch         Watch this directory and rebuild on change (hot reload).
 """
 import projects
 from docopt import docopt
 
-from latex import LaTeXDocument
+from latex import BuildWatch, LaTeXDocument
 
 VERSION = '0.1.0'
 
@@ -38,6 +39,10 @@ if __name__ == '__main__':
         try:
             doc = LaTeXDocument.load_document(args['<project>'], all_projects)
             doc.make(for_print=args['--for-print'], to_pdf=args['--to-pdf'])
+
+            if args['--watch']:
+                watch = BuildWatch(doc, for_print=args['--for-print'], to_pdf=args['--to-pdf'])
+                watch.run()
         except KeyError as e:
             print(f'{args["<project>"]} is not a valid project identifier. Valid projects are {all_projects}')
         except FileNotFoundError as e:

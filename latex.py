@@ -1,6 +1,9 @@
 import subprocess
 import yaml
 from os import remove
+from time import sleep
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 
 class Version(yaml.YAMLObject):
@@ -115,6 +118,39 @@ class LaTeXDocument:
             raise FileNotFoundError(f'Project {project} does not have a valid build.yml file.')
 
         return LaTeXDocument(project, p, c)
+
+
+class BuildWatch:
+    def __init__(self, document, to_pdf=False, for_print=False):
+        self.document = document
+        self.observer = Observer()
+        self.to_pdf = to_pdf
+        self.for_print = for_print
+
+    def run(self):
+        event_handler = BuildWatchEventHandler(self.document)
+        self.observer.schedule(event_handler, self.document.project.content_path, recursive=True)
+        self.observer.start()
+        try:
+            while True:
+                sleep(5)
+        except KeyboardInterrupt:
+            self.observer.stop()
+
+
+class BuildWatchEventHandler(FileSystemEventHandler):
+    def __init__(self, document, to_pdf=False, for_print=False):
+        super().__init__()
+        self.document = document
+        self.to_pdf = to_pdf
+        self.for_print = for_print
+        self.paths = [f'{document.project.content_path}/{file}.md'
+                      for file in document.build_config.inputs]
+
+    def on_modified(self, event):
+        if event.src_path in self.paths:
+            print(f'Change in {event.src_path}. Rebuilding...')
+            self.document.make(for_print=self.for_print, to_pdf=self.to_pdf)
 
 
 def load_config(project_path):
